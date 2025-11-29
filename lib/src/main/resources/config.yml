@@ -1,0 +1,7 @@
+# HologramsFSMP configuration
+line-spacing: 0.25
+image-size: 64
+image-folder: images
+# How many horizontal pixels are grouped into one ArmorStand to reduce entity count.
+# 1 = one ArmorStand per pixel (highest quality, heavy). 2/4/8 reduce entities accordingly.
+image-chunk-size: 4

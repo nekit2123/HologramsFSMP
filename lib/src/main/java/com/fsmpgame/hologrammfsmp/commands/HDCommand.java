@@ -1,0 +1,283 @@
+package com.fsmpgame.hologrammfsmp.commands;
+
+import com.fsmpgame.hologrammfsmp.Hologram;
+import com.fsmpgame.hologrammfsmp.HologramManager;
+import com.fsmpgame.hologrammfsmp.HologramPlugin;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.Command;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class HDCommand implements CommandExecutor, TabCompleter {
+    private final HologramPlugin plugin;
+
+    public HDCommand(HologramPlugin plugin) { this.plugin = plugin; }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length == 0) {
+            sendHelp(sender);
+            return true;
+        }
+
+        HologramManager mgr = plugin.getManager();
+        String sub = args[0].toLowerCase();
+
+        try {
+            switch (sub) {
+                case "create":
+                    if (!(sender instanceof Player)) { sender.sendMessage("Только игрок может создавать голограммы"); return true; }
+                    if (args.length < 2) { sender.sendMessage("Использование: /hd create <название>"); return true; }
+                    Player p = (Player) sender;
+                    String id = args[1];
+                    Hologram created = mgr.create(id, p.getLocation());
+                    if (created == null) {
+                        sender.sendMessage(ChatColor.RED + "Голограмма с таким именем уже существует");
+                    } else {
+                        // replace default first line with friendly text
+                        created.getLines().clear();
+                        created.addLine(ChatColor.translateAlternateColorCodes('&', "&fХоло " + id + " - &7Первая линия"));
+                        created.spawn();
+                        sender.sendMessage(ChatColor.GREEN + "Создана голограмма: " + ChatColor.YELLOW + id + ChatColor.GRAY + " — Первая линия добавлена");
+                    }
+                    return true;
+
+                case "delete":
+                    if (args.length < 2) { sender.sendMessage("Usage: /hd delete <id>"); return true; }
+                    if (mgr.delete(args[1])) sender.sendMessage("Deleted " + args[1]); else sender.sendMessage("Not found");
+                    return true;
+
+                case "list":
+                    sender.sendMessage("Holograms:");
+                    for (Hologram h : mgr.list()) sender.sendMessage(" - " + h.getId());
+                    return true;
+
+                case "teleport":
+                    if (!(sender instanceof Player)) { sender.sendMessage("Only players"); return true; }
+                    if (args.length < 2) { sender.sendMessage("Usage: /hd teleport <id>"); return true; }
+                    Hologram t = mgr.get(args[1]);
+                    if (t == null) { sender.sendMessage("Not found"); return true; }
+                    Player pl = (Player) sender;
+                    pl.teleport(t.getLocation().add(0,1,0));
+                    sender.sendMessage("Teleported to hologram " + args[1]);
+                    return true;
+
+                case "movehere":
+                    if (!(sender instanceof Player)) { sender.sendMessage("Only players"); return true; }
+                    if (args.length < 2) { sender.sendMessage("Usage: /hd movehere <id>"); return true; }
+                    Hologram mh = mgr.get(args[1]);
+                    if (mh == null) { sender.sendMessage("Not found"); return true; }
+                    mh.setLocation(((Player)sender).getLocation());
+                    mh.spawn();
+                    sender.sendMessage("Moved hologram " + args[1]);
+                    return true;
+
+                case "addline":
+                    // new signature: /hd addline <id> <index> <text>
+                    if (args.length < 4) { sender.sendMessage("Использование: /hd addline <название> <номер_строки> <текст>"); return true; }
+                    Hologram al = mgr.get(args[1]);
+                    if (al == null) { sender.sendMessage(ChatColor.RED + "Голограмма не найдена"); return true; }
+                    int insertIndex;
+                    try { insertIndex = Integer.parseInt(args[2]); } catch (NumberFormatException nfe) { sender.sendMessage("Неверный номер строки"); return true; }
+                    String insertText = ChatColor.translateAlternateColorCodes('&', join(args, 3));
+                    // insert at index (if index > size -> append)
+                    if (insertIndex < 0) insertIndex = 0;
+                    if (insertIndex >= al.getLines().size()) {
+                        al.addLine(insertText);
+                    } else {
+                        al.getLines().add(insertIndex, insertText);
+                    }
+                    al.spawn();
+                    sender.sendMessage(ChatColor.GREEN + "Добавлена строка в голограмму " + ChatColor.YELLOW + args[1] + ChatColor.GRAY + " на позицию " + insertIndex);
+                    return true;
+
+                case "removeline":
+                    if (args.length < 3) { sender.sendMessage("Использование: /hd removeline <название> <номер_строки>"); return true; }
+                    Hologram rl = mgr.get(args[1]);
+                    if (rl == null) { sender.sendMessage(ChatColor.RED + "Голограмма не найдена"); return true; }
+                    int ridx;
+                    try { ridx = Integer.parseInt(args[2]); } catch (NumberFormatException nfe) { sender.sendMessage("Неверный номер строки"); return true; }
+                    rl.removeLine(ridx);
+                    rl.spawn();
+                    sender.sendMessage(ChatColor.GREEN + "Удалена строка " + ridx + " из " + args[1]);
+                    return true;
+
+                case "setline":
+                    if (args.length < 4) { sender.sendMessage("Использование: /hd setline <название> <номер_строки> <текст>"); return true; }
+                    Hologram sl = mgr.get(args[1]);
+                    if (sl == null) { sender.sendMessage(ChatColor.RED + "Голограмма не найдена"); return true; }
+                    int sidx;
+                    try { sidx = Integer.parseInt(args[2]); } catch (NumberFormatException nfe) { sender.sendMessage("Неверный номер строки"); return true; }
+                    String stext = ChatColor.translateAlternateColorCodes('&', join(args, 3));
+                    sl.setLine(sidx, stext);
+                    sl.spawn();
+                    sender.sendMessage(ChatColor.GREEN + "Установлена строка " + sidx + " для " + args[1]);
+                    return true;
+
+                case "readtext":
+                    if (args.length < 4) { sender.sendMessage("Использование: /hd readtext <название> <номер_строки> <текст>"); return true; }
+                    Hologram rt = mgr.get(args[1]);
+                    if (rt == null) { sender.sendMessage(ChatColor.RED + "Голограмма не найдена"); return true; }
+                    int rid;
+                    try { rid = Integer.parseInt(args[2]); } catch (NumberFormatException nfe) { sender.sendMessage("Неверный номер строки"); return true; }
+                    String rtext = ChatColor.translateAlternateColorCodes('&', join(args, 3));
+                    rt.setLine(rid, rtext);
+                    rt.spawn();
+                    sender.sendMessage(ChatColor.GREEN + "Текст строки " + rid + " обновлён");
+                    return true;
+
+                case "readimage":
+                    // readimage <id> <image.png>
+                    if (args.length < 3) { sender.sendMessage("Usage: /hd readimage <id> <image.png>"); return true; }
+                    Hologram hi = mgr.get(args[1]);
+                    if (hi == null) { sender.sendMessage("Not found"); return true; }
+                    String imageName = args[2];
+                    File f = new File(plugin.getDataFolder(), "images" + File.separator + imageName);
+                    if (!f.exists()) { sender.sendMessage("Image not found in plugin/images/"); return true; }
+                    try {
+                        BufferedImage img = ImageIO.read(f);
+                        if (img == null) { sender.sendMessage("Не удалось прочитать изображение"); return true; }
+                        if (img.getWidth() != 64 || img.getHeight() != 64) {
+                            // scale to 64x64
+                            BufferedImage scaled = new BufferedImage(64,64,BufferedImage.TYPE_INT_ARGB);
+                            java.awt.Graphics2D g = scaled.createGraphics();
+                            g.drawImage(img, 0,0,64,64,null);
+                            g.dispose();
+                            img = scaled;
+                        }
+                        // set image on hologram (transient runtime), persist filename and spawn grid with chunk size
+                        hi.setImage(img);
+                        hi.setImageFileName(imageName);
+                        int chunk = plugin.getConfig().getInt("image-chunk-size", 1);
+                        hi.spawn(chunk);
+                        sender.sendMessage(ChatColor.GREEN + "Изображение отображено в голограмме " + args[1] + ". Chunk=" + chunk);
+                    } catch (IOException ex) {
+                        sender.sendMessage(ChatColor.RED + "Ошибка при чтении изображения: " + ex.getMessage());
+                    }
+                    return true;
+
+                case "fix":
+                    if (args.length < 2) { sender.sendMessage("Использование: /hd fix <название>"); return true; }
+                    Hologram fx = mgr.get(args[1]);
+                    if (fx == null) { sender.sendMessage(ChatColor.RED + "Голограмма не найдена"); return true; }
+                    fx.despawn(); fx.spawn();
+                    sender.sendMessage(ChatColor.GREEN + "Голограмма " + args[1] + " обновлена");
+                    return true;
+
+                case "save":
+                    mgr.saveAll(); sender.sendMessage(ChatColor.GREEN + "Все голограммы сохранены"); return true;
+
+                case "reload":
+                    plugin.reloadConfig();
+                    for (Hologram h : mgr.list()) h.despawn();
+                    mgr.loadAll();
+                    sender.sendMessage(ChatColor.GREEN + "Плагин перезагружен, голограммы загружены");
+                    return true;
+
+                default:
+                    sender.sendMessage(ChatColor.RED + "Неизвестная команда. Используй /hd для списка команд.");
+                    return true;
+            }
+        } catch (Exception ex) {
+            sender.sendMessage("Error: " + ex.getMessage());
+            ex.printStackTrace();
+            return true;
+        }
+    }
+
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.GOLD + "--- HologramsFSMP Help ---");
+        sender.sendMessage(ChatColor.YELLOW + "/hd create <название>" + ChatColor.GRAY + " - Создать голограмму под вами");
+        sender.sendMessage(ChatColor.YELLOW + "/hd delete <название>" + ChatColor.GRAY + " - Удалить голограмму");
+        sender.sendMessage(ChatColor.YELLOW + "/hd list" + ChatColor.GRAY + " - Список голограмм");
+        sender.sendMessage(ChatColor.YELLOW + "/hd teleport <название>" + ChatColor.GRAY + " - Телепорт к голограмме");
+        sender.sendMessage(ChatColor.YELLOW + "/hd movehere <название>" + ChatColor.GRAY + " - Переместить голограмму к вам");
+        sender.sendMessage(ChatColor.YELLOW + "/hd addline <название> <номер> <текст>" + ChatColor.GRAY + " - Добавить/вставить строку");
+        sender.sendMessage(ChatColor.YELLOW + "/hd removeline <название> <номер>" + ChatColor.GRAY + " - Удалить строку");
+        sender.sendMessage(ChatColor.YELLOW + "/hd setline <название> <номер> <текст>" + ChatColor.GRAY + " - Установить строку");
+        sender.sendMessage(ChatColor.YELLOW + "/hd readtext <название> <номер> <текст>" + ChatColor.GRAY + " - Редактировать строку");
+        sender.sendMessage(ChatColor.YELLOW + "/hd readimage <название> <файл.png>" + ChatColor.GRAY + " - Загрузить изображение из plugins/HologramsFSMP/images/");
+        sender.sendMessage(ChatColor.YELLOW + "/hd fix <название>" + ChatColor.GRAY + " - Пересоздать отображение голограммы");
+        sender.sendMessage(ChatColor.YELLOW + "/hd save" + ChatColor.GRAY + " - Сохранить все голограммы");
+        sender.sendMessage(ChatColor.YELLOW + "/hd reload" + ChatColor.GRAY + " - Перезагрузить плагин и голограммы");
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+        HologramManager mgr = plugin.getManager();
+        if (args.length == 1) {
+            String[] subs = new String[]{"create","delete","list","teleport","movehere","addline","removeline","setline","readtext","readimage","fix","save","reload"};
+            for (String s : subs) if (s.startsWith(args[0].toLowerCase())) completions.add(s);
+            return completions;
+        }
+        if (args.length == 2) {
+            String sub = args[0].toLowerCase();
+            if (sub.equals("create")) return completions; // name free text
+            // suggest existing hologram ids
+            for (Hologram h : mgr.list()) {
+                if (h.getId().toLowerCase().startsWith(args[1].toLowerCase())) completions.add(h.getId());
+            }
+            return completions;
+        }
+        // for index arguments suggest numbers
+        if (args.length == 3) {
+            try {
+                for (int i = 0; i < 20; i++) completions.add(String.valueOf(i));
+            } catch (Exception ignored) {}
+            return completions;
+        }
+        return completions;
+    }
+
+    private String join(String[] args, int start) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = start; i < args.length; i++) {
+            if (i != start) sb.append(' ');
+            sb.append(args[i]);
+        }
+        return sb.toString();
+    }
+
+    private List<String> imageToLines(BufferedImage img) {
+        List<String> lines = new ArrayList<>();
+        for (int y = 0; y < img.getHeight(); y++) {
+            StringBuilder sb = new StringBuilder();
+            for (int x = 0; x < img.getWidth(); x++) {
+                int rgb = img.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = (rgb) & 0xFF;
+                String hex = String.format("%02x%02x%02x", r, g, b);
+                // build §x§R§R§G§G§B§B sequence
+                String colorCode = toSectionHex(hex);
+                sb.append(colorCode).append('\u2588'); // full block
+            }
+            lines.add(sb.toString());
+        }
+        return lines;
+    }
+
+    private String toSectionHex(String hex) {
+        // hex like rrggbb
+        StringBuilder s = new StringBuilder();
+        char section = '\u00A7';
+        s.append(section).append('x');
+        for (char c : hex.toCharArray()) {
+            s.append(section).append(c);
+        }
+        return s.toString();
+    }
+}

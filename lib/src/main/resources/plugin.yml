@@ -1,0 +1,11 @@
+name: HologramsFSMP
+main: com.fsmpgame.hologrammfsmp.HologramPlugin
+version: 1.0.0
+api-version: 1.21
+author: fsmpgame
+
+commands:
+  hd:
+    description: Hologram commands
+    usage: /<command> <subcommand>
+    aliases: [hologram, holograms]

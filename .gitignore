@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+/build/
+**/build/
+
+# IDEA
+.idea/
+*.iml
+
+# Java
+*.class
+*.jar
+
+# OS
+Thumbs.db
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Local plugin runs
+plugins/
+logs/
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
