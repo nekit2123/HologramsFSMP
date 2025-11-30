@@ -57,6 +57,7 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                 case "delete":
                     if (args.length < 2) { sender.sendMessage("Usage: /hd delete <id>"); return true; }
                     if (mgr.delete(args[1])) sender.sendMessage("Deleted " + args[1]); else sender.sendMessage("Not found");
+                    return true;
                     case "yaw":
                     case "y":
                         // /hd yaw <id> <deg|+rel|-rel>
@@ -96,11 +97,11 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                         if (args.length < 2) { sender.sendMessage("Usage: /hd face <id>"); return true; }
                         Hologram hf2 = mgr.get(args[1]);
                         if (hf2 == null) { sender.sendMessage(ChatColor.RED + "Hologram not found"); return true; }
-                        Player pl = (Player) sender;
+                        Player caller = (Player) sender;
                         if (hf2.getLocation() == null) { sender.sendMessage("Hologram has no valid location"); return true; }
                         org.bukkit.Location base = hf2.getLocation();
-                        org.bukkit.Location playerLoc = pl.getLocation();
-                        org.bukkit.Vector dir = playerLoc.toVector().subtract(base.toVector());
+                        org.bukkit.Location playerLoc = caller.getLocation();
+                        org.bukkit.util.Vector dir = playerLoc.toVector().subtract(base.toVector());
                         if (dir.lengthSquared() < 0.0001) { sender.sendMessage("You are too close to determine facing"); return true; }
                         org.bukkit.Location tmp = base.clone();
                         tmp.setDirection(dir);
@@ -121,7 +122,6 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                         mgr.saveAll();
                         sender.sendMessage(ChatColor.GREEN + "Hologram " + args[1] + " now faces you (yaw=" + hf2.getImageYawDegrees() + ")");
                         return true;
-                    return true;
 
                 case "list":
                     sender.sendMessage("Holograms:");

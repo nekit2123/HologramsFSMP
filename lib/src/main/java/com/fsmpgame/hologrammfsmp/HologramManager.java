@@ -102,13 +102,6 @@ public class HologramManager {
                         h.setImageFlipH(flipH);
                         h.setImageFlipV(flipV);
                         h.setImageYawDegrees(yaw);
-                        // load persisted orientation flags (if present)
-                        int rot = cfg.getInt(path + "imageRotationDegrees", 0);
-                        boolean flipH = cfg.getBoolean(path + "imageFlipH", false);
-                        boolean flipV = cfg.getBoolean(path + "imageFlipV", false);
-                        h.setImageRotationDegrees(rot);
-                        h.setImageFlipH(flipH);
-                        h.setImageFlipV(flipV);
                     } catch (Exception ex) {
                         plugin.getLogger().warning("Failed to load image for hologram " + id + ": " + ex.getMessage());
                     }
