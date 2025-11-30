@@ -221,8 +221,8 @@ public class HDCommand implements CommandExecutor, TabCompleter {
 
                     int tW = 128, tH = 64;
                     if (possibleSize != null) {
-                        String[] p = possibleSize.split("x");
-                        try { tW = Integer.parseInt(p[0]); tH = Integer.parseInt(p[1]); } catch (NumberFormatException ignored) {}
+                        String[] sizeParts = possibleSize.split("x");
+                        try { tW = Integer.parseInt(sizeParts[0]); tH = Integer.parseInt(sizeParts[1]); } catch (NumberFormatException ignored) {}
                     }
 
                     // create images directory if missing
@@ -346,7 +346,7 @@ public class HDCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         HologramManager mgr = plugin.getManager();
         if (args.length == 1) {
-            String[] subs = new String[]{"create","delete","list","teleport","movehere","addline","removeline","setline","readtext","readimage","fix","save","reload"};
+            String[] subs = new String[]{"create","delete","list","teleport","movehere","addline","removeline","setline","readtext","readimage","imetext","fix","save","reload"};
             for (String s : subs) if (s.startsWith(args[0].toLowerCase())) completions.add(s);
             return completions;
         }
@@ -372,6 +372,15 @@ public class HDCommand implements CommandExecutor, TabCompleter {
     private String join(String[] args, int start) {
         StringBuilder sb = new StringBuilder();
         for (int i = start; i < args.length; i++) {
+            if (i != start) sb.append(' ');
+            sb.append(args[i]);
+        }
+        return sb.toString();
+    }
+
+    private String join(String[] args, int start, int endExclusive) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = start; i < endExclusive && i < args.length; i++) {
             if (i != start) sb.append(' ');
             sb.append(args[i]);
         }
