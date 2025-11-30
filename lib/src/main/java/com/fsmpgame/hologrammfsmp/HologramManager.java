@@ -61,6 +61,7 @@ public class HologramManager {
             cfg.set("holograms." + id + ".imageRotationDegrees", h.getImageRotationDegrees());
             cfg.set("holograms." + id + ".imageFlipH", h.isImageFlipH());
             cfg.set("holograms." + id + ".imageFlipV", h.isImageFlipV());
+            cfg.set("holograms." + id + ".imageYawDegrees", h.getImageYawDegrees());
         }
         try {
             cfg.save(dataFile);
@@ -92,6 +93,15 @@ public class HologramManager {
                         java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(f);
                         if (img != null) h.setImage(img);
                         h.setImageFileName(imageName);
+                        // load persisted orientation flags (if present)
+                        int rot = cfg.getInt(path + "imageRotationDegrees", 0);
+                        boolean flipH = cfg.getBoolean(path + "imageFlipH", false);
+                        boolean flipV = cfg.getBoolean(path + "imageFlipV", false);
+                        double yaw = cfg.getDouble(path + "imageYawDegrees", 0.0);
+                        h.setImageRotationDegrees(rot);
+                        h.setImageFlipH(flipH);
+                        h.setImageFlipV(flipV);
+                        h.setImageYawDegrees(yaw);
                         // load persisted orientation flags (if present)
                         int rot = cfg.getInt(path + "imageRotationDegrees", 0);
                         boolean flipH = cfg.getBoolean(path + "imageFlipH", false);

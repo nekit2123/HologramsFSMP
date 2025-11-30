@@ -57,6 +57,70 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                 case "delete":
                     if (args.length < 2) { sender.sendMessage("Usage: /hd delete <id>"); return true; }
                     if (mgr.delete(args[1])) sender.sendMessage("Deleted " + args[1]); else sender.sendMessage("Not found");
+                    case "yaw":
+                    case "y":
+                        // /hd yaw <id> <deg|+rel|-rel>
+                        if (args.length < 3) { sender.sendMessage("Usage: /hd yaw <id> <deg|+rel|-rel>"); return true; }
+                        Hologram hy = mgr.get(args[1]);
+                        if (hy == null) { sender.sendMessage(ChatColor.RED + "Hologram not found"); return true; }
+                        String degStr = args[2];
+                        double yawVal;
+                        try {
+                            if (degStr.startsWith("+") || degStr.startsWith("-")) {
+                                double delta = Double.parseDouble(degStr);
+                                yawVal = hy.getImageYawDegrees() + delta;
+                            } else {
+                                yawVal = Double.parseDouble(degStr);
+                            }
+                        } catch (NumberFormatException nfe) { sender.sendMessage("Invalid yaw value"); return true; }
+                        hy.setImageYawDegrees(yawVal);
+                        hy.despawn();
+                        if (hy.getImage() != null) {
+                            int maxPerLine = plugin.getConfig().getInt("max-stands-per-line", 64);
+                            int chunk = Math.max(1, (int)Math.ceil((double)hy.getImage().getWidth() / (double)maxPerLine));
+                            double overallHeight = plugin.getConfig().getDouble("image-overall-height", 4.0);
+                            if (!hy.getLines().isEmpty()) overallHeight = hy.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
+                            double minPixel = plugin.getConfig().getDouble("min-pixel-block-size", 0.12);
+                            overallHeight = Math.max(overallHeight, minPixel * hy.getImage().getHeight());
+                            hy.spawnImage(chunk, overallHeight);
+                        } else {
+                            hy.spawn();
+                        }
+                        mgr.saveAll();
+                        sender.sendMessage(ChatColor.GREEN + "Set hologram yaw to " + hy.getImageYawDegrees() + " for " + args[1]);
+                        return true;
+
+                    case "face":
+                        // /hd face <id>
+                        if (!(sender instanceof Player)) { sender.sendMessage("Only players can use /hd face <id>"); return true; }
+                        if (args.length < 2) { sender.sendMessage("Usage: /hd face <id>"); return true; }
+                        Hologram hf2 = mgr.get(args[1]);
+                        if (hf2 == null) { sender.sendMessage(ChatColor.RED + "Hologram not found"); return true; }
+                        Player pl = (Player) sender;
+                        if (hf2.getLocation() == null) { sender.sendMessage("Hologram has no valid location"); return true; }
+                        org.bukkit.Location base = hf2.getLocation();
+                        org.bukkit.Location playerLoc = pl.getLocation();
+                        org.bukkit.Vector dir = playerLoc.toVector().subtract(base.toVector());
+                        if (dir.lengthSquared() < 0.0001) { sender.sendMessage("You are too close to determine facing"); return true; }
+                        org.bukkit.Location tmp = base.clone();
+                        tmp.setDirection(dir);
+                        double yawToPlayer = tmp.getYaw();
+                        hf2.setImageYawDegrees(yawToPlayer);
+                        hf2.despawn();
+                        if (hf2.getImage() != null) {
+                            int maxPerLine = plugin.getConfig().getInt("max-stands-per-line", 64);
+                            int chunk = Math.max(1, (int)Math.ceil((double)hf2.getImage().getWidth() / (double)maxPerLine));
+                            double overallHeight = plugin.getConfig().getDouble("image-overall-height", 4.0);
+                            if (!hf2.getLines().isEmpty()) overallHeight = hf2.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
+                            double minPixel = plugin.getConfig().getDouble("min-pixel-block-size", 0.12);
+                            overallHeight = Math.max(overallHeight, minPixel * hf2.getImage().getHeight());
+                            hf2.spawnImage(chunk, overallHeight);
+                        } else {
+                            hf2.spawn();
+                        }
+                        mgr.saveAll();
+                        sender.sendMessage(ChatColor.GREEN + "Hologram " + args[1] + " now faces you (yaw=" + hf2.getImageYawDegrees() + ")");
+                        return true;
                     return true;
 
                 case "list":
@@ -391,8 +455,10 @@ public class HDCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/hd setline <название> <номер> <текст>" + ChatColor.GRAY + " - Установить строку");
         sender.sendMessage(ChatColor.YELLOW + "/hd readtext <название> <номер> <текст>" + ChatColor.GRAY + " - Редактировать строку");
         sender.sendMessage(ChatColor.YELLOW + "/hd readimage <название> <файл.png>" + ChatColor.GRAY + " - Загрузить изображение из plugins/HologramsFSMP/images/");
-        sender.sendMessage(ChatColor.YELLOW + "/hd rotate|r <название> <0|90|180|270>" + ChatColor.GRAY + " - Повернуть изображение голограммы");
-        sender.sendMessage(ChatColor.YELLOW + "/hd flip|f <название> <h|v|none>" + ChatColor.GRAY + " - Отразить изображение по горизонтали/вертикали");
+        sender.sendMessage(ChatColor.YELLOW + "/hd rotate|r <название> <0|90|180|270>" + ChatColor.GRAY + " - Повернуть изображение голограммы (содержимое)");
+        sender.sendMessage(ChatColor.YELLOW + "/hd flip|f <название> <h|v|none>" + ChatColor.GRAY + " - Отразить изображение по горизонтали/вертикали (содержимое)");
+        sender.sendMessage(ChatColor.YELLOW + "/hd yaw|y <название> <deg|+rel|-rel>" + ChatColor.GRAY + " - Повернуть плоскость голограммы (ось Y)");
+        sender.sendMessage(ChatColor.YELLOW + "/hd face <название>" + ChatColor.GRAY + " - Повернуть плоскость так, чтобы она смотрела на вас");
         sender.sendMessage(ChatColor.YELLOW + "/hd fix <название>" + ChatColor.GRAY + " - Пересоздать отображение голограммы");
         sender.sendMessage(ChatColor.YELLOW + "/hd save" + ChatColor.GRAY + " - Сохранить все голограммы");
         sender.sendMessage(ChatColor.YELLOW + "/hd reload" + ChatColor.GRAY + " - Перезагрузить плагин и голограммы");
@@ -403,7 +469,7 @@ public class HDCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         HologramManager mgr = plugin.getManager();
         if (args.length == 1) {
-            String[] subs = new String[]{"create","delete","list","teleport","movehere","addline","removeline","setline","readtext","readimage","imetext","rotate","r","flip","f","fix","save","reload"};
+            String[] subs = new String[]{"create","delete","list","teleport","movehere","addline","removeline","setline","readtext","readimage","imetext","rotate","r","flip","f","yaw","y","face","fix","save","reload"};
             for (String s : subs) if (s.startsWith(args[0].toLowerCase())) completions.add(s);
             return completions;
         }

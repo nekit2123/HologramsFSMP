@@ -27,6 +27,8 @@ public class Hologram {
     private int imageRotationDegrees = 0; // 0,90,180,270
     private boolean imageFlipH = false;
     private boolean imageFlipV = false;
+    // image plane yaw (degrees) - rotates the entire plane around vertical axis
+    private double imageYawDegrees = 0.0;
 
     public Hologram(String id, Location loc) {
         this.id = id;
@@ -75,6 +77,9 @@ public class Hologram {
     public boolean isImageFlipH() { return imageFlipH; }
     public void setImageFlipV(boolean flip) { this.imageFlipV = flip; }
     public boolean isImageFlipV() { return imageFlipV; }
+
+    public void setImageYawDegrees(double deg) { this.imageYawDegrees = deg % 360.0; if (this.imageYawDegrees < 0) this.imageYawDegrees += 360.0; }
+    public double getImageYawDegrees() { return imageYawDegrees; }
 
     /**
      * Spawn with default chunk size (1)
@@ -194,7 +199,13 @@ public class Hologram {
 
                 int groupIndex = colGroup / chunkSize;
                 double x = xOffsetStart + groupIndex * xSpacing;
-                Location loc = base.clone().add(x, y, 0);
+                // apply yaw rotation for the whole plane around the vertical axis
+                double yawRad = Math.toRadians(imageYawDegrees);
+                double dx = x;
+                double dz = 0.0;
+                double rx = dx * Math.cos(yawRad) - dz * Math.sin(yawRad);
+                double rz = dx * Math.sin(yawRad) + dz * Math.cos(yawRad);
+                Location loc = base.clone().add(rx, y, rz);
 
                 ArmorStand as = (ArmorStand) base.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
                 as.setInvisible(true);
