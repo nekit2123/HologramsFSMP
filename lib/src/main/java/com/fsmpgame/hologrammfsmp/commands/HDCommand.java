@@ -189,6 +189,8 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                         if (!hi.getLines().isEmpty()) {
                             overallHeight = hi.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
                         }
+                        double minPixel = plugin.getConfig().getDouble("min-pixel-block-size", 0.12);
+                        overallHeight = Math.max(overallHeight, minPixel * img.getHeight());
 
                         // set image on hologram (transient runtime), persist filename and spawn grid
                         hi.setImage(img);
@@ -197,6 +199,99 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                         sender.sendMessage(ChatColor.GREEN + "Image displayed in hologram " + args[1] + ". chunk=" + chunk + ", size=" + img.getWidth() + "x" + img.getHeight());
                     } catch (IOException ex) {
                         sender.sendMessage(ChatColor.RED + "Error reading image: " + ex.getMessage());
+                    }
+                    return true;
+
+                case "imetext":
+                    // imetext <holoId> <filename.png> <text...> [<width>x<height>]
+                    if (args.length < 4) { sender.sendMessage("Usage: /hd imetext <holoId> <file.png> <text...> [<width>x<height>]"); return true; }
+                    String holoId = args[1];
+                    String outName = args[2];
+                    Hologram target = mgr.get(holoId);
+                    if (target == null) { sender.sendMessage("Hologram not found: " + holoId); return true; }
+                    // collect text (args[3..n]) until optional size param
+                    String possibleSize = null;
+                    String text;
+                    if (args[args.length - 1].toLowerCase().matches("\\d+x\\d+")) {
+                        possibleSize = args[args.length - 1];
+                        text = join(args, 3, args.length - 1);
+                    } else {
+                        text = join(args, 3);
+                    }
+
+                    int tW = 128, tH = 64;
+                    if (possibleSize != null) {
+                        String[] p = possibleSize.split("x");
+                        try { tW = Integer.parseInt(p[0]); tH = Integer.parseInt(p[1]); } catch (NumberFormatException ignored) {}
+                    }
+
+                    // create images directory if missing
+                    java.io.File imagesDir = new java.io.File(plugin.getDataFolder(), "images");
+                    if (!imagesDir.exists()) imagesDir.mkdirs();
+                    java.io.File outFile = new java.io.File(imagesDir, outName);
+
+                    try {
+                        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(tW, tH, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                        java.awt.Graphics2D g = img.createGraphics();
+                        g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                        g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+
+                        // background transparent
+                        g.setComposite(java.awt.AlphaComposite.Clear);
+                        g.fillRect(0,0,tW,tH);
+                        g.setComposite(java.awt.AlphaComposite.SrcOver);
+
+                        // gradient paint from blue to gold
+                        java.awt.Color blue = new java.awt.Color(0x1E90FF);
+                        java.awt.Color gold = new java.awt.Color(0xFFD700);
+                        java.awt.GradientPaint gp = new java.awt.GradientPaint(0,0,blue,tW,0,gold);
+                        g.setPaint(gp);
+
+                        // choose font size to fit
+                        int fontSize = Math.max(12, tH - 8);
+                        java.awt.Font font = new java.awt.Font("SansSerif", java.awt.Font.BOLD, fontSize);
+                        g.setFont(font);
+
+                        // measure and adjust font to fit width
+                        java.awt.FontMetrics fm = g.getFontMetrics();
+                        int textWidth = fm.stringWidth(text);
+                        while (textWidth > tW - 8 && fontSize > 8) {
+                            fontSize -= 2;
+                            font = font.deriveFont((float)fontSize);
+                            g.setFont(font);
+                            fm = g.getFontMetrics();
+                            textWidth = fm.stringWidth(text);
+                        }
+
+                        int x = (tW - textWidth) / 2;
+                        int y = (tH - fm.getHeight()) / 2 + fm.getAscent();
+
+                        // draw text with gradient
+                        g.drawString(text, x, y);
+                        g.dispose();
+
+                        javax.imageio.ImageIO.write(img, "PNG", outFile);
+                        sender.sendMessage("Generated image " + outName + " (" + tW + "x" + tH + ")");
+
+                        // now call readimage logic by loading the file and rendering
+                        BufferedImage read = javax.imageio.ImageIO.read(outFile);
+                        if (read == null) { sender.sendMessage("Failed to generate image"); return true; }
+
+                        // reuse existing logic: compute chunk and overall height
+                        int maxPerLine = plugin.getConfig().getInt("max-stands-per-line", 64);
+                        int chunk = Math.max(1, (int)Math.ceil((double)read.getWidth() / (double)maxPerLine));
+                        double overallHeight = plugin.getConfig().getDouble("image-overall-height", 4.0);
+                        if (!target.getLines().isEmpty()) overallHeight = target.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
+                        double minPixel = plugin.getConfig().getDouble("min-pixel-block-size", 0.12);
+                        overallHeight = Math.max(overallHeight, minPixel * read.getHeight());
+
+                        target.setImage(read);
+                        target.setImageFileName(outName);
+                        target.spawnImage(chunk, overallHeight);
+                        sender.sendMessage("Rendered generated text image into hologram " + holoId + ". chunk=" + chunk);
+                    } catch (Exception ex) {
+                        sender.sendMessage("Error generating image: " + ex.getMessage());
                     }
                     return true;
 
