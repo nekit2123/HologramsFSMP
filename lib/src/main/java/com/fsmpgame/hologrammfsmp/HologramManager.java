@@ -96,9 +96,21 @@ public class HologramManager {
                 }
             }
             holograms.put(id, h);
-            // spawn with configured chunk size
-            int chunk = plugin.getConfig().getInt("image-chunk-size", 1);
-            h.spawn(chunk);
+            // spawn image with configured chunking and overall height
+            int maxPerLine = plugin.getConfig().getInt("max-stands-per-line", 64);
+            int chunk = 1;
+            if (h.getImageFileName() != null && h.getImage() != null) {
+                int w = h.getImage().getWidth();
+                chunk = Math.max(1, (int)Math.ceil((double)w / (double)maxPerLine));
+                double overallHeight = plugin.getConfig().getDouble("image-overall-height", 4.0);
+                if (!h.getLines().isEmpty()) {
+                    overallHeight = h.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
+                }
+                h.spawnImage(chunk, overallHeight);
+            } else {
+                // text-mode spawn
+                h.spawn();
+            }
         }
     }
 }

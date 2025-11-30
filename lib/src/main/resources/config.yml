@@ -5,3 +5,13 @@ image-folder: images
 # How many horizontal pixels are grouped into one ArmorStand to reduce entity count.
 # 1 = one ArmorStand per pixel (highest quality, heavy). 2/4/8 reduce entities accordingly.
 image-chunk-size: 4
+
+# Maximum number of ArmorStands allowed per horizontal line for images.
+# The plugin will automatically increase grouping (chunk size) so the number
+# of spawned stands per line does not exceed this value.
+max-stands-per-line: 64
+
+# Target overall height (in blocks) used when rendering images that do not
+# have existing text lines. If a hologram already contains text lines, their
+# total height (lines * line-spacing) will be used as the image height.
+image-overall-height: 4.0

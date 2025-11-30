@@ -139,8 +139,8 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                     return true;
 
                 case "readimage":
-                    // readimage <id> <image.png>
-                    if (args.length < 3) { sender.sendMessage("Usage: /hd readimage <id> <image.png>"); return true; }
+                    // readimage <id> <image.png> [<width>x<height>]
+                    if (args.length < 3) { sender.sendMessage("Usage: /hd readimage <id> <image.png> [<width>x<height>]"); return true; }
                     Hologram hi = mgr.get(args[1]);
                     if (hi == null) { sender.sendMessage("Not found"); return true; }
                     String imageName = args[2];
@@ -148,23 +148,55 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                     if (!f.exists()) { sender.sendMessage("Image not found in plugin/images/"); return true; }
                     try {
                         BufferedImage img = ImageIO.read(f);
-                        if (img == null) { sender.sendMessage("Не удалось прочитать изображение"); return true; }
-                        if (img.getWidth() != 64 || img.getHeight() != 64) {
-                            // scale to 64x64
-                            BufferedImage scaled = new BufferedImage(64,64,BufferedImage.TYPE_INT_ARGB);
+                        if (img == null) { sender.sendMessage("Failed to read image"); return true; }
+
+                        // optional size argument like 64x64
+                        int targetW = img.getWidth();
+                        int targetH = img.getHeight();
+                        if (args.length >= 4) {
+                            String sz = args[3].toLowerCase();
+                            if (sz.matches("\\d+x\\d+")) {
+                                String[] parts = sz.split("x");
+                                try {
+                                    targetW = Integer.parseInt(parts[0]);
+                                    targetH = Integer.parseInt(parts[1]);
+                                } catch (NumberFormatException nfe) {
+                                    sender.sendMessage("Invalid size parameter, using original image size.");
+                                }
+                            } else {
+                                sender.sendMessage("Size must be like 64x64. Using original image size.");
+                            }
+                        }
+
+                        // high-quality scaling to requested size (if changed)
+                        if (img.getWidth() != targetW || img.getHeight() != targetH) {
+                            BufferedImage scaled = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
                             java.awt.Graphics2D g = scaled.createGraphics();
-                            g.drawImage(img, 0,0,64,64,null);
+                            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                            g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+                            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                            g.drawImage(img, 0, 0, targetW, targetH, null);
                             g.dispose();
                             img = scaled;
                         }
-                        // set image on hologram (transient runtime), persist filename and spawn grid with chunk size
+
+                        // compute chunk automatically so stands per line <= max-stands-per-line
+                        int maxPerLine = plugin.getConfig().getInt("max-stands-per-line", 64);
+                        int chunk = Math.max(1, (int)Math.ceil((double)img.getWidth() / (double)maxPerLine));
+
+                        // compute overall height: use existing text height if present, otherwise config default
+                        double overallHeight = plugin.getConfig().getDouble("image-overall-height", 4.0);
+                        if (!hi.getLines().isEmpty()) {
+                            overallHeight = hi.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
+                        }
+
+                        // set image on hologram (transient runtime), persist filename and spawn grid
                         hi.setImage(img);
                         hi.setImageFileName(imageName);
-                        int chunk = plugin.getConfig().getInt("image-chunk-size", 1);
-                        hi.spawn(chunk);
-                        sender.sendMessage(ChatColor.GREEN + "Изображение отображено в голограмме " + args[1] + ". Chunk=" + chunk);
+                        hi.spawnImage(chunk, overallHeight);
+                        sender.sendMessage(ChatColor.GREEN + "Image displayed in hologram " + args[1] + ". chunk=" + chunk + ", size=" + img.getWidth() + "x" + img.getHeight());
                     } catch (IOException ex) {
-                        sender.sendMessage(ChatColor.RED + "Ошибка при чтении изображения: " + ex.getMessage());
+                        sender.sendMessage(ChatColor.RED + "Error reading image: " + ex.getMessage());
                     }
                     return true;
 

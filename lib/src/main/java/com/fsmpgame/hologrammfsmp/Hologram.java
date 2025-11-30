@@ -74,55 +74,25 @@ public class Hologram {
      * Spawn with specified horizontal chunk size: how many pixels are combined into one ArmorStand horizontally.
      */
     public void spawn(int chunkSize) {
+        // Deprecated: keep for backward compatibility (calls spawnImage when image present)
+        if (image != null) {
+            // compute a reasonable overall height (default 4.0 blocks)
+            double overallHeight = 4.0;
+            if (!lines.isEmpty()) {
+                overallHeight = lines.size() * 0.25;
+            }
+            spawnImage(chunkSize, overallHeight);
+            return;
+        }
+        // default text mode: each line on separate armor stand vertically
         despawn();
         Location base = getLocation();
         if (base == null) return;
-        if (image != null) {
-            // image mode: spawn armor stands in grid, grouping horizontally by chunkSize
-            int w = image.getWidth();
-            int h = image.getHeight();
-            if (chunkSize < 1) chunkSize = 1;
-            // spacing: approximate character width/height
-            double xSpacing = 0.12 * chunkSize; // spacing multiplied by chunk size
-            double ySpacing = 0.12;
-            // center horizontally
-            double xOffsetStart = - ( (w / (double)chunkSize) - 1 ) * xSpacing / 2.0;
-            double yOffsetStart = 0; // start at base y and go down
-
-            // For each row, group pixels horizontally by chunkSize
-            for (int row = 0; row < h; row++) {
-                for (int colGroup = 0; colGroup < w; colGroup += chunkSize) {
-                    StringBuilder sb = new StringBuilder();
-                    int groupEnd = Math.min(colGroup + chunkSize, w);
-                    for (int px = colGroup; px < groupEnd; px++) {
-                        int rgb = image.getRGB(px, row);
-                        int r = (rgb >> 16) & 0xFF;
-                        int g = (rgb >> 8) & 0xFF;
-                        int b = (rgb) & 0xFF;
-                        String hex = String.format("%02x%02x%02x", r, g, b);
-                        String colorCode = toSectionHex(hex);
-                        sb.append(colorCode).append('\u2588');
-                    }
-
-                    Location loc = base.clone().add(xOffsetStart + (colGroup / (double)chunkSize) * xSpacing, yOffsetStart + row * ySpacing, 0);
-                    ArmorStand as = (ArmorStand) base.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
-                    as.setInvisible(true);
-                    as.setMarker(true);
-                    as.setGravity(false);
-                    as.setCustomNameVisible(true);
-                    String text = sb.toString();
-                    try { as.setCustomName(text); } catch (NoSuchMethodError e) { as.setCustomName(text); }
-                    spawned.add(as);
-                }
-            }
-            return;
-        }
-
-        // default text mode: each line on separate armor stand vertically
         double offset = 0.25;
+        // place line 0 at the top and subsequent lines below it
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            Location loc = base.clone().add(0, offset * i, 0);
+            Location loc = base.clone().add(0, -offset * i, 0);
             ArmorStand as = (ArmorStand) base.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
             as.setInvisible(true);
             as.setMarker(true);
@@ -134,6 +104,76 @@ public class Hologram {
                 as.setCustomName(line);
             }
             spawned.add(as);
+        }
+    }
+
+    /**
+     * Spawn image using automatic spacing. chunkSize = number of horizontal pixels grouped
+     * into a single armor stand. overallHeight is total height (in blocks) that the image should occupy.
+     */
+    public void spawnImage(int chunkSize, double overallHeight) {
+        despawn();
+        Location base = getLocation();
+        if (base == null) return;
+        if (image == null) return;
+
+        int w = image.getWidth();
+        int h = image.getHeight();
+        if (chunkSize < 1) chunkSize = 1;
+
+        // Number of columns after grouping
+        int cols = (w + chunkSize - 1) / chunkSize;
+
+        // per-pixel spacing to fit the image into overallHeight
+        double perPixel = overallHeight / (double) h;
+        // make horizontal spacing proportional and square
+        double xSpacing = perPixel * chunkSize;
+        double ySpacing = perPixel;
+
+        // center offsets
+        double xOffsetStart = -((cols - 1) * xSpacing) / 2.0;
+        // place top row at base Y and go downward (row 0 = topmost)
+        double yStart = 0.0; // base location is the top edge
+
+        for (int row = 0; row < h; row++) {
+            // compute Y: row 0 at top, increasing rows go downwards
+            double y = yStart - row * ySpacing;
+            for (int colGroup = 0; colGroup < w; colGroup += chunkSize) {
+                // average color for the group
+                int groupEnd = Math.min(colGroup + chunkSize, w);
+                long rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+                int count = 0;
+                for (int px = colGroup; px < groupEnd; px++) {
+                    int rgb = image.getRGB(px, row);
+                    int a = (rgb >> 24) & 0xFF;
+                    int r = (rgb >> 16) & 0xFF;
+                    int g = (rgb >> 8) & 0xFF;
+                    int b = (rgb) & 0xFF;
+                    aSum += a; rSum += r; gSum += g; bSum += b; count++;
+                }
+                if (count == 0) continue;
+                int aAvg = (int)(aSum / count);
+                // skip mostly-transparent groups
+                if (aAvg < 16) continue;
+                int rAvg = (int)(rSum / count);
+                int gAvg = (int)(gSum / count);
+                int bAvg = (int)(bSum / count);
+                String hex = String.format("%02x%02x%02x", rAvg, gAvg, bAvg);
+                String colorCode = toSectionHex(hex);
+
+                int groupIndex = colGroup / chunkSize;
+                double x = xOffsetStart + groupIndex * xSpacing;
+                Location loc = base.clone().add(x, y, 0);
+
+                ArmorStand as = (ArmorStand) base.getWorld().spawnEntity(loc, EntityType.ARMOR_STAND);
+                as.setInvisible(true);
+                as.setMarker(true);
+                as.setGravity(false);
+                as.setCustomNameVisible(true);
+                String text = colorCode + '\u2588';
+                try { as.setCustomName(text); } catch (NoSuchMethodError e) { as.setCustomName(text); }
+                spawned.add(as);
+            }
         }
     }
 
