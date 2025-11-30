@@ -295,6 +295,61 @@ public class HDCommand implements CommandExecutor, TabCompleter {
                     }
                     return true;
 
+                case "rotate":
+                case "r":
+                    // /hd rotate <id> <0|90|180|270>
+                    if (args.length < 3) { sender.sendMessage("Usage: /hd rotate <id> <0|90|180|270>"); return true; }
+                    Hologram hr = mgr.get(args[1]);
+                    if (hr == null) { sender.sendMessage(ChatColor.RED + "Hologram not found"); return true; }
+                    int deg;
+                    try { deg = Integer.parseInt(args[2]); } catch (NumberFormatException nfe) { sender.sendMessage("Invalid degrees"); return true; }
+                    deg = ((deg % 360) + 360) % 360;
+                    if (deg != 0 && deg != 90 && deg != 180 && deg != 270) { sender.sendMessage("Rotation must be one of 0,90,180,270"); return true; }
+                    hr.setImageRotationDegrees(deg);
+                    // respawn appropriately
+                    hr.despawn();
+                    if (hr.getImage() != null) {
+                        int maxPerLine = plugin.getConfig().getInt("max-stands-per-line", 64);
+                        int chunk = Math.max(1, (int)Math.ceil((double)hr.getImage().getWidth() / (double)maxPerLine));
+                        double overallHeight = plugin.getConfig().getDouble("image-overall-height", 4.0);
+                        if (!hr.getLines().isEmpty()) overallHeight = hr.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
+                        double minPixel = plugin.getConfig().getDouble("min-pixel-block-size", 0.12);
+                        overallHeight = Math.max(overallHeight, minPixel * hr.getImage().getHeight());
+                        hr.spawnImage(chunk, overallHeight);
+                    } else {
+                        hr.spawn();
+                    }
+                    mgr.saveAll();
+                    sender.sendMessage(ChatColor.GREEN + "Set rotation " + deg + " for " + args[1]);
+                    return true;
+
+                case "flip":
+                case "f":
+                    // /hd flip <id> <h|v|none>
+                    if (args.length < 3) { sender.sendMessage("Usage: /hd flip <id> <h|v|none>"); return true; }
+                    Hologram hf = mgr.get(args[1]);
+                    if (hf == null) { sender.sendMessage(ChatColor.RED + "Hologram not found"); return true; }
+                    String which = args[2].toLowerCase();
+                    if (which.equals("h")) { hf.setImageFlipH(true); hf.setImageFlipV(false); }
+                    else if (which.equals("v")) { hf.setImageFlipV(true); hf.setImageFlipH(false); }
+                    else if (which.equals("none")) { hf.setImageFlipH(false); hf.setImageFlipV(false); }
+                    else { sender.sendMessage("Invalid flip option. Use h, v or none"); return true; }
+                    hf.despawn();
+                    if (hf.getImage() != null) {
+                        int maxPerLine = plugin.getConfig().getInt("max-stands-per-line", 64);
+                        int chunk = Math.max(1, (int)Math.ceil((double)hf.getImage().getWidth() / (double)maxPerLine));
+                        double overallHeight = plugin.getConfig().getDouble("image-overall-height", 4.0);
+                        if (!hf.getLines().isEmpty()) overallHeight = hf.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
+                        double minPixel = plugin.getConfig().getDouble("min-pixel-block-size", 0.12);
+                        overallHeight = Math.max(overallHeight, minPixel * hf.getImage().getHeight());
+                        hf.spawnImage(chunk, overallHeight);
+                    } else {
+                        hf.spawn();
+                    }
+                    mgr.saveAll();
+                    sender.sendMessage(ChatColor.GREEN + "Set flip for " + args[1] + " to " + which);
+                    return true;
+
                 case "fix":
                     if (args.length < 2) { sender.sendMessage("Использование: /hd fix <название>"); return true; }
                     Hologram fx = mgr.get(args[1]);
@@ -336,6 +391,8 @@ public class HDCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/hd setline <название> <номер> <текст>" + ChatColor.GRAY + " - Установить строку");
         sender.sendMessage(ChatColor.YELLOW + "/hd readtext <название> <номер> <текст>" + ChatColor.GRAY + " - Редактировать строку");
         sender.sendMessage(ChatColor.YELLOW + "/hd readimage <название> <файл.png>" + ChatColor.GRAY + " - Загрузить изображение из plugins/HologramsFSMP/images/");
+        sender.sendMessage(ChatColor.YELLOW + "/hd rotate|r <название> <0|90|180|270>" + ChatColor.GRAY + " - Повернуть изображение голограммы");
+        sender.sendMessage(ChatColor.YELLOW + "/hd flip|f <название> <h|v|none>" + ChatColor.GRAY + " - Отразить изображение по горизонтали/вертикали");
         sender.sendMessage(ChatColor.YELLOW + "/hd fix <название>" + ChatColor.GRAY + " - Пересоздать отображение голограммы");
         sender.sendMessage(ChatColor.YELLOW + "/hd save" + ChatColor.GRAY + " - Сохранить все голограммы");
         sender.sendMessage(ChatColor.YELLOW + "/hd reload" + ChatColor.GRAY + " - Перезагрузить плагин и голограммы");
@@ -346,7 +403,7 @@ public class HDCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         HologramManager mgr = plugin.getManager();
         if (args.length == 1) {
-            String[] subs = new String[]{"create","delete","list","teleport","movehere","addline","removeline","setline","readtext","readimage","imetext","fix","save","reload"};
+            String[] subs = new String[]{"create","delete","list","teleport","movehere","addline","removeline","setline","readtext","readimage","imetext","rotate","r","flip","f","fix","save","reload"};
             for (String s : subs) if (s.startsWith(args[0].toLowerCase())) completions.add(s);
             return completions;
         }

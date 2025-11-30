@@ -23,6 +23,10 @@ public class Hologram {
     private transient BufferedImage image = null;
     // stored image filename (persisted)
     private String imageFileName = null;
+    // image orientation flags (persisted)
+    private int imageRotationDegrees = 0; // 0,90,180,270
+    private boolean imageFlipH = false;
+    private boolean imageFlipV = false;
 
     public Hologram(String id, Location loc) {
         this.id = id;
@@ -64,6 +68,13 @@ public class Hologram {
 
     public void setImageFileName(String fileName) { this.imageFileName = fileName; }
     public String getImageFileName() { return imageFileName; }
+
+    public void setImageRotationDegrees(int deg) { this.imageRotationDegrees = ((deg%360)+360)%360; }
+    public int getImageRotationDegrees() { return imageRotationDegrees; }
+    public void setImageFlipH(boolean flip) { this.imageFlipH = flip; }
+    public boolean isImageFlipH() { return imageFlipH; }
+    public void setImageFlipV(boolean flip) { this.imageFlipV = flip; }
+    public boolean isImageFlipV() { return imageFlipV; }
 
     /**
      * Spawn with default chunk size (1)
@@ -144,7 +155,27 @@ public class Hologram {
                 long rSum = 0, gSum = 0, bSum = 0, aSum = 0;
                 int count = 0;
                 for (int px = colGroup; px < groupEnd; px++) {
-                    int rgb = image.getRGB(px, row);
+                    // compute source coords with rotation and flip
+                    int srcX = px;
+                    int srcY = row;
+                    int rot = imageRotationDegrees % 360;
+                    if (rot == 90) {
+                        srcX = row;
+                        srcY = w - 1 - px;
+                    } else if (rot == 180) {
+                        srcX = w - 1 - px;
+                        srcY = h - 1 - row;
+                    } else if (rot == 270) {
+                        srcX = h - 1 - row;
+                        srcY = px;
+                    }
+                    if (imageFlipH) srcX = w - 1 - srcX;
+                    if (imageFlipV) srcY = h - 1 - srcY;
+
+                    // bounds check
+                    if (srcX < 0 || srcX >= w || srcY < 0 || srcY >= h) continue;
+
+                    int rgb = image.getRGB(srcX, srcY);
                     int a = (rgb >> 24) & 0xFF;
                     int r = (rgb >> 16) & 0xFF;
                     int g = (rgb >> 8) & 0xFF;

@@ -57,6 +57,10 @@ public class HologramManager {
             cfg.set("holograms." + id + ".lines", h.getLines());
             // persist image filename if set
             if (h.getImageFileName() != null) cfg.set("holograms." + id + ".image", h.getImageFileName()); else cfg.set("holograms." + id + ".image", null);
+            // persist image orientation flags
+            cfg.set("holograms." + id + ".imageRotationDegrees", h.getImageRotationDegrees());
+            cfg.set("holograms." + id + ".imageFlipH", h.isImageFlipH());
+            cfg.set("holograms." + id + ".imageFlipV", h.isImageFlipV());
         }
         try {
             cfg.save(dataFile);
@@ -88,6 +92,13 @@ public class HologramManager {
                         java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(f);
                         if (img != null) h.setImage(img);
                         h.setImageFileName(imageName);
+                        // load persisted orientation flags (if present)
+                        int rot = cfg.getInt(path + "imageRotationDegrees", 0);
+                        boolean flipH = cfg.getBoolean(path + "imageFlipH", false);
+                        boolean flipV = cfg.getBoolean(path + "imageFlipV", false);
+                        h.setImageRotationDegrees(rot);
+                        h.setImageFlipH(flipH);
+                        h.setImageFlipV(flipV);
                     } catch (Exception ex) {
                         plugin.getLogger().warning("Failed to load image for hologram " + id + ": " + ex.getMessage());
                     }
@@ -106,6 +117,9 @@ public class HologramManager {
                 if (!h.getLines().isEmpty()) {
                     overallHeight = h.getLines().size() * plugin.getConfig().getDouble("line-spacing", 0.25);
                 }
+                // Ensure minimum per-pixel block size so pixels are visible
+                double minPixel = plugin.getConfig().getDouble("min-pixel-block-size", 0.12);
+                overallHeight = Math.max(overallHeight, minPixel * h.getImage().getHeight());
                 h.spawnImage(chunk, overallHeight);
             } else {
                 // text-mode spawn
