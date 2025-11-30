@@ -9,9 +9,14 @@ image-chunk-size: 4
 # Maximum number of ArmorStands allowed per horizontal line for images.
 # The plugin will automatically increase grouping (chunk size) so the number
 # of spawned stands per line does not exceed this value.
-max-stands-per-line: 64
+max-stands-per-line: 16
 
 # Target overall height (in blocks) used when rendering images that do not
 # have existing text lines. If a hologram already contains text lines, their
 # total height (lines * line-spacing) will be used as the image height.
 image-overall-height: 4.0
+
+# Minimum size of one image pixel in blocks. Ensures pixels are visible and
+# prevents collapsing many pixels into a single point. Increase to make
+# image "pixels" bigger.
+min-pixel-block-size: 0.12
